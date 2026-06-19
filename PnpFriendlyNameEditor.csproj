@@ -28,7 +28,29 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="README.md" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="setupapi_icon_1.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="README.md">
+      <Generator></Generator>
+    </Resource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="README.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>README.md</DependentUpon>
+    </Compile>
   </ItemGroup>
 
 </Project>
