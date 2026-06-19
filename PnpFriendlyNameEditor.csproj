@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
+    <SignAssembly>False</SignAssembly>
+    <ApplicationIcon>setupapi_icon_1.ico</ApplicationIcon>
+    <Authors>Rainbow-SPY</Authors>
+    <Copyright>Copyright (C) Rainbow-SPY 2019-2025 , All rights reserved</Copyright>
+    <AssemblyName>pfne</AssemblyName>
+    <AssemblyTitle>PnP Devices FriendlyName Editor</AssemblyTitle>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DebugType>embedded</DebugType>
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DebugType>embedded</DebugType>
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="setupapi_icon_1.ico" />
+  </ItemGroup>
+
+</Project>
