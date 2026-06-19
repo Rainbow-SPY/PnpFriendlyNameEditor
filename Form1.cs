@@ -151,7 +151,10 @@ public partial class Form1 : Form
 
                     if (!string.IsNullOrWhiteSpace(reselectInstanceId) &&
                         string.Equals(device.InstanceId, reselectInstanceId, StringComparison.OrdinalIgnoreCase))
+                    {
                         nodeToSelect = node;
+                    }
+
                     treeDevices.Nodes.Add(classNode);
                 }
 
@@ -163,6 +166,7 @@ public partial class Form1 : Form
                 else
                     ShowDevice(null);
             }
+        }
         catch (Exception ex)
         {
             MessageBox.Show(this, ex.ToString(), "枚举设备失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
