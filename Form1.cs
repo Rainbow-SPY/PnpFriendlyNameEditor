@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -22,20 +23,11 @@ public partial class Form1 : Form
         splitMain.SizeChanged += (_, _) => ApplySplitRatio();
     }
 
-    private void Form1_Load(object? sender, EventArgs e)
-    {
-        LoadDevices();
-    }
+    private void Form1_Load(object? sender, EventArgs e) => LoadDevices();
 
-    private void btnRefresh_Click(object? sender, EventArgs e)
-    {
-        LoadDevices(_selected?.InstanceId);
-    }
+    private void btnRefresh_Click(object? sender, EventArgs e) => LoadDevices(_selected?.InstanceId);
 
-    private void chkShowNonPresent_CheckedChanged(object? sender, EventArgs e)
-    {
-        LoadDevices(_selected?.InstanceId);
-    }
+    private void chkShowNonPresent_CheckedChanged(object? sender, EventArgs e) => LoadDevices(_selected?.InstanceId);
 
     private void btnCopyInstanceId_Click(object? sender, EventArgs e)
     {
@@ -45,15 +37,9 @@ public partial class Form1 : Form
         }
     }
 
-    private void btnSave_Click(object? sender, EventArgs e)
-    {
-        SaveFriendlyName();
-    }
+    private void btnSave_Click(object? sender, EventArgs e) => SaveFriendlyName();
 
-    private void btnExportCustom_Click(object? sender, EventArgs e)
-    {
-        ExportCheckedCustomInfo();
-    }
+    private void btnExportCustom_Click(object? sender, EventArgs e) => ExportCheckedCustomInfo();
 
     private void treeDevices_AfterSelect(object? sender, TreeViewEventArgs e)
     {
@@ -72,12 +58,8 @@ public partial class Form1 : Form
 
             // 分类节点勾选/取消时，批量影响子设备。
             if (e.Node.Tag is null)
-            {
                 foreach (TreeNode child in e.Node.Nodes)
-                {
                     child.Checked = e.Node.Checked;
-                }
-            }
         }
         finally
         {
@@ -169,24 +151,18 @@ public partial class Form1 : Form
 
                     if (!string.IsNullOrWhiteSpace(reselectInstanceId) &&
                         string.Equals(device.InstanceId, reselectInstanceId, StringComparison.OrdinalIgnoreCase))
-                    {
                         nodeToSelect = node;
-                    }
+                    treeDevices.Nodes.Add(classNode);
                 }
 
-                treeDevices.Nodes.Add(classNode);
+                if (nodeToSelect != null)
+                {
+                    nodeToSelect.EnsureVisible();
+                    treeDevices.SelectedNode = nodeToSelect;
+                }
+                else
+                    ShowDevice(null);
             }
-
-            if (nodeToSelect != null)
-            {
-                nodeToSelect.EnsureVisible();
-                treeDevices.SelectedNode = nodeToSelect;
-            }
-            else
-            {
-                ShowDevice(null);
-            }
-        }
         catch (Exception ex)
         {
             MessageBox.Show(this, ex.ToString(), "枚举设备失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -326,15 +302,9 @@ public partial class Form1 : Form
     private IEnumerable<DeviceEntry> GetCheckedDevices()
     {
         foreach (TreeNode root in treeDevices.Nodes)
-        {
             foreach (TreeNode child in root.Nodes)
-            {
                 if (child.Checked && child.Tag is DeviceEntry device)
-                {
                     yield return device;
-                }
-            }
-        }
     }
 
     private void UpdateExportButtonState()
@@ -375,4 +345,8 @@ public partial class Form1 : Form
         var principal = new WindowsPrincipal(identity);
         return principal.IsInRole(WindowsBuiltInRole.Administrator);
     }
+
+    private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e) => Process.Start("explorer.exe", linkLabel1.Text).Dispose();
+
+    private void linkLabel1_MouseDoubleClick(object sender, MouseEventArgs e) => linkLabel1_LinkClicked(sender, new LinkLabelLinkClickedEventArgs(linkLabel1.Links[0]));
 }

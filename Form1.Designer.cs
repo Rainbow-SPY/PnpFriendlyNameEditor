@@ -85,12 +85,12 @@ partial class Form1
         txtEnumerator = new TextBox();
         lblDriver = new Label();
         txtDriver = new TextBox();
-        lblHint = new Label();
-        lblTitle = new Label();
-        label1 = new Label();
         label2 = new Label();
+        label1 = new Label();
         label3 = new Label();
         linkLabel1 = new LinkLabel();
+        lblHint = new Label();
+        lblTitle = new Label();
         rootLayout.SuspendLayout();
         topPanel.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)splitMain).BeginInit();
@@ -507,6 +507,52 @@ partial class Form1
         txtDriver.Size = new Size(649, 23);
         txtDriver.TabIndex = 17;
         // 
+        // label2
+        // 
+        label2.Dock = DockStyle.Fill;
+        label2.Location = new Point(286, 442);
+        label2.Name = "label2";
+        label2.Size = new Size(655, 20);
+        label2.TabIndex = 19;
+        label2.Text = "关注塔菲谢谢喵~";
+        // 
+        // label1
+        // 
+        label1.Location = new Point(3, 442);
+        label1.Name = "label1";
+        label1.Size = new Size(277, 20);
+        label1.TabIndex = 18;
+        label1.Text = "作者: Rainbow SPY";
+        label1.TextAlign = ContentAlignment.MiddleCenter;
+        // 
+        // label3
+        // 
+        label3.Location = new Point(3, 462);
+        label3.Name = "label3";
+        label3.Padding = new Padding(0, 5, 0, 0);
+        label3.Size = new Size(277, 22);
+        label3.TabIndex = 20;
+        label3.Text = "项目地址: ";
+        label3.TextAlign = ContentAlignment.MiddleCenter;
+        // 
+        // linkLabel1
+        // 
+        linkLabel1.ActiveLinkColor = SystemColors.Highlight;
+        linkLabel1.AutoSize = true;
+        linkLabel1.LinkBehavior = LinkBehavior.NeverUnderline;
+        linkLabel1.LinkColor = SystemColors.Highlight;
+        linkLabel1.Location = new Point(286, 462);
+        linkLabel1.Name = "linkLabel1";
+        linkLabel1.Padding = new Padding(0, 5, 0, 0);
+        linkLabel1.Size = new Size(338, 22);
+        linkLabel1.TabIndex = 21;
+        linkLabel1.TabStop = true;
+        linkLabel1.Text = "https://github.com/Rainbow-SPY/PnpFriendlyNameEditor";
+        linkLabel1.TextAlign = ContentAlignment.MiddleCenter;
+        linkLabel1.VisitedLinkColor = SystemColors.Highlight;
+        linkLabel1.LinkClicked += linkLabel1_LinkClicked;
+        linkLabel1.MouseDoubleClick += linkLabel1_MouseDoubleClick;
+        // 
         // lblHint
         // 
         lblHint.Dock = DockStyle.Bottom;
@@ -528,43 +574,6 @@ partial class Form1
         lblTitle.TabIndex = 0;
         lblTitle.Text = "设备属性";
         lblTitle.TextAlign = ContentAlignment.MiddleLeft;
-        // 
-        // label1
-        // 
-        label1.Location = new Point(3, 442);
-        label1.Name = "label1";
-        label1.Size = new Size(277, 20);
-        label1.TabIndex = 18;
-        label1.Text = "作者: Rainbow SPY";
-        label1.TextAlign = ContentAlignment.MiddleCenter;
-        // 
-        // label2
-        // 
-        label2.Dock = DockStyle.Fill;
-        label2.Location = new Point(286, 442);
-        label2.Name = "label2";
-        label2.Size = new Size(655, 20);
-        label2.TabIndex = 19;
-        label2.Text = "关注塔菲谢谢喵~";
-        // 
-        // label3
-        // 
-        label3.AutoSize = true;
-        label3.Location = new Point(3, 462);
-        label3.Name = "label3";
-        label3.Size = new Size(63, 17);
-        label3.TabIndex = 20;
-        label3.Text = "项目地址: ";
-        // 
-        // linkLabel1
-        // 
-        linkLabel1.AutoSize = true;
-        linkLabel1.Location = new Point(286, 462);
-        linkLabel1.Name = "linkLabel1";
-        linkLabel1.Size = new Size(201, 17);
-        linkLabel1.TabIndex = 21;
-        linkLabel1.TabStop = true;
-        linkLabel1.Text = "https://github.com/Rainbow-SPY/";
         // 
         // Form1
         // 
