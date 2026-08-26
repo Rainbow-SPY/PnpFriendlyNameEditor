@@ -3,6 +3,7 @@ using System.Security.Principal;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using static Rox.Runtimes.LogLibraries;
 
 namespace PnpFriendlyNameEditor;
 
@@ -32,9 +33,7 @@ public partial class Form1 : Form
     private void btnCopyInstanceId_Click(object? sender, EventArgs e)
     {
         if (!string.IsNullOrWhiteSpace(txtInstanceId.Text))
-        {
             Clipboard.SetText(txtInstanceId.Text);
-        }
     }
 
     private void btnSave_Click(object? sender, EventArgs e) => SaveFriendlyName();
@@ -151,25 +150,17 @@ public partial class Form1 : Form
 
                     if (!string.IsNullOrWhiteSpace(reselectInstanceId) &&
                         string.Equals(device.InstanceId, reselectInstanceId, StringComparison.OrdinalIgnoreCase))
-                    {
                         nodeToSelect = node;
-                    }
-
-                    treeDevices.Nodes.Add(classNode);
                 }
 
-                if (nodeToSelect != null)
-                {
-                    nodeToSelect.EnsureVisible();
-                    treeDevices.SelectedNode = nodeToSelect;
-                }
-                else
-                    ShowDevice(null);
+                // 关键：分类节点只添加一次
+                treeDevices.Nodes.Add(classNode);
             }
         }
         catch (Exception ex)
         {
             MessageBox.Show(this, ex.ToString(), "枚举设备失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            WriteLog.Error("1" + ex.ToString() + ex.Message);
         }
         finally
         {
@@ -270,8 +261,9 @@ public partial class Form1 : Form
             ExportedAt = DateTimeOffset.Now,
             MachineName = Environment.MachineName,
             UserName = Environment.UserName,
-            Note = "用于备份设备 FriendlyName 等自定义显示信息。后续导入时应优先用 InstanceId 匹配，失败后再尝试 HardwareIds / CompatibleIds / ClassGuid / Service / Enumerator 等弱匹配。",
-            Devices = devices.Select(DeviceCustomInfo.FromDeviceEntry).ToList()
+            Note =
+                "用于备份设备 FriendlyName 等自定义显示信息。后续导入时应优先用 InstanceId 匹配，失败后再尝试 HardwareIds / CompatibleIds / ClassGuid / Service / Enumerator 等弱匹配。",
+            Devices = [.. devices.Select(DeviceCustomInfo.FromDeviceEntry)]
         };
 
         using var dialog = new SaveFileDialog
@@ -306,9 +298,9 @@ public partial class Form1 : Form
     private IEnumerable<DeviceEntry> GetCheckedDevices()
     {
         foreach (TreeNode root in treeDevices.Nodes)
-            foreach (TreeNode child in root.Nodes)
-                if (child.Checked && child.Tag is DeviceEntry device)
-                    yield return device;
+        foreach (TreeNode child in root.Nodes)
+            if (child.Checked && child.Tag is DeviceEntry device)
+                yield return device;
     }
 
     private void UpdateExportButtonState()
@@ -350,7 +342,9 @@ public partial class Form1 : Form
         return principal.IsInRole(WindowsBuiltInRole.Administrator);
     }
 
-    private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e) => Process.Start("explorer.exe", linkLabel1.Text).Dispose();
+    private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e) =>
+        Process.Start("explorer.exe", linkLabel1.Text).Dispose();
 
-    private void linkLabel1_MouseDoubleClick(object sender, MouseEventArgs e) => linkLabel1_LinkClicked(sender, new LinkLabelLinkClickedEventArgs(linkLabel1.Links[0]));
+    private void linkLabel1_MouseDoubleClick(object sender, MouseEventArgs e) =>
+        linkLabel1_LinkClicked(sender, new LinkLabelLinkClickedEventArgs(linkLabel1.Links[0]));
 }

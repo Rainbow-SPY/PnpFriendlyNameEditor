@@ -36,6 +36,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="Rox.Runtimes">
+      <HintPath>..\..\$Release\Rox\Rox.Runtimes.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="README.md">
       <Generator></Generator>
     </Resource>
