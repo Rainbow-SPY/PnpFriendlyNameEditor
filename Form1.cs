@@ -11,6 +11,16 @@ public partial class Form1 : Form
 {
     private DeviceEntry? _selected;
     private bool _updatingChecks;
+    private Button? _btnImportCustom;
+    private ProgressBar? _importProgress;
+    private Label? _importStatus;
+    private Dictionary<Control, bool>? _importEnabledState;
+
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        EnsureImportUi();
+    }
 
     public Form1()
     {
@@ -35,6 +45,281 @@ public partial class Form1 : Form
         if (!string.IsNullOrWhiteSpace(txtInstanceId.Text))
             Clipboard.SetText(txtInstanceId.Text);
     }
+
+
+    private void EnsureImportUi()
+    {
+        if (_btnImportCustom is not null)
+            return;
+
+        _btnImportCustom = new Button
+        {
+            AutoSize = true,
+            Text = "导入 / 匹配配置",
+            Name = "btnImportCustom",
+            Margin = new Padding(6, 3, 3, 3)
+        };
+        _btnImportCustom.Click += async (_, _) => await ImportCustomInfoAsync();
+
+        _importProgress = new ProgressBar
+        {
+            Width = 135,
+            Height = 22,
+            Minimum = 0,
+            Maximum = 100,
+            Value = 0,
+            Style = ProgressBarStyle.Continuous,
+            Margin = new Padding(10, 4, 3, 3),
+            Visible = false
+        };
+
+        _importStatus = new Label
+        {
+            AutoSize = true,
+            Text = "",
+            Margin = new Padding(8, 7, 3, 0),
+            Visible = false
+        };
+
+        topPanel.Controls.Add(_btnImportCustom);
+        topPanel.Controls.Add(_importProgress);
+        topPanel.Controls.Add(_importStatus);
+
+        var importIndex = Math.Min(5, topPanel.Controls.Count - 1);
+        topPanel.Controls.SetChildIndex(_btnImportCustom, importIndex);
+        topPanel.Controls.SetChildIndex(_importProgress, Math.Min(importIndex + 2, topPanel.Controls.Count - 1));
+        topPanel.Controls.SetChildIndex(_importStatus, Math.Min(importIndex + 3, topPanel.Controls.Count - 1));
+    }
+
+    private async Task ImportCustomInfoAsync()
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = "导入 FriendlyName 配置 / 备份",
+            Filter = "JSON 文件 (*.json)|*.json|所有文件 (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        List<ImportRule> rules;
+        try
+        {
+            rules = ImportFileParser.LoadRules(dialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"无法读取配置文件：\r\n\r\n{ex.Message}", "导入失败",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        if (rules.Count == 0)
+        {
+            MessageBox.Show(this, "配置文件中的 Devices 为空，没有可导入的设备。", "没有设备",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var start = MessageBox.Show(
+            this,
+            $"正在准备导入 {rules.Count} 个设备。\r\n\r\n单击“确定”后开始枚举并匹配本机全部 PnP 设备（包括非当前连接设备）。",
+            "准备导入",
+            MessageBoxButtons.OKCancel,
+            MessageBoxIcon.Information);
+        if (start != DialogResult.OK)
+            return;
+
+        ImportPreparation preparation;
+        IProgress<ImportProgressInfo> progress = new Progress<ImportProgressInfo>(UpdateImportProgress);
+        SetImportBusy(true, "正在枚举设备...", 5);
+        try
+        {
+            preparation = await Task.Run(() =>
+            {
+                progress.Report(new ImportProgressInfo { Percent = 8, Status = "枚举全部 PnP 设备..." });
+                var devices = PnpDeviceService.EnumerateDevices(false);
+                progress.Report(new ImportProgressInfo { Percent = 15, Status = $"已枚举 {devices.Count} 个设备，开始匹配..." });
+                var result = ImportMatcher.Prepare(rules, devices, progress);
+                progress.Report(new ImportProgressInfo { Percent = 100, Status = "匹配完成" });
+                return result;
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.ToString(), "匹配失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+        finally
+        {
+            SetImportBusy(false);
+        }
+
+        var summary =
+            $"匹配完成。\r\n\r\n" +
+            $"完全匹配：{preparation.ExactCount}\r\n" +
+            $"模糊匹配：{preparation.FuzzyCount}\r\n" +
+            $"未匹配：{preparation.UnmatchedCount}" +
+            (preparation.AmbiguousCount > 0 ? $"（其中 {preparation.AmbiguousCount} 项存在多个候选）" : "") +
+            $"\r\n\r\n已匹配到 {preparation.MatchedCount} 个设备。是否继续进入差异审阅？";
+
+        var continueResult = MessageBox.Show(this, summary, "匹配结果",
+            MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        if (continueResult != DialogResult.Yes)
+            return;
+
+        if (preparation.MatchedCount == 0)
+        {
+            MessageBox.Show(this, "没有任何设备可进入差异审阅。", "没有匹配",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        IReadOnlyList<ImportMatchResult> selected;
+        try
+        {
+            using var review = new ImportDiffForm(preparation.Matches);
+            if (review.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            selected = review.GetSelectedMatches();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this,
+                $"无法打开导入差异审阅窗口。\r\n\r\n{ex.Message}",
+                "导入审阅失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        if (selected.Count == 0)
+        {
+            MessageBox.Show(this, "没有勾选任何设备，不会写入 FriendlyName。", "未应用",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var finalConfirm = MessageBox.Show(
+            this,
+            $"即将覆盖 {selected.Count} 个设备的 FriendlyName。\r\n\r\n继续？",
+            "确认应用",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning);
+        if (finalConfirm != DialogResult.Yes)
+            return;
+
+        await ApplyImportedNamesAsync(selected);
+    }
+
+    private async Task ApplyImportedNamesAsync(IReadOnlyList<ImportMatchResult> matches)
+    {
+        var errors = new List<string>();
+        IProgress<ImportProgressInfo> progress = new Progress<ImportProgressInfo>(UpdateImportProgress);
+        SetImportBusy(true, "正在写入 FriendlyName...", 0);
+        try
+        {
+            await Task.Run(() =>
+            {
+                for (var i = 0; i < matches.Count; i++)
+                {
+                    var match = matches[i];
+                    progress.Report(new ImportProgressInfo
+                    {
+                        Percent = matches.Count == 0 ? 100 : (int)(100.0 * i / matches.Count),
+                        Status = $"应用 {i + 1}/{matches.Count}: {match.Rule.DesiredFriendlyName}"
+                    });
+
+                    try
+                    {
+                        AppendFriendlyNameBackup(match.Device, match.Rule.DesiredFriendlyName);
+                        PnpDeviceService.SetFriendlyName(match.Device.InstanceId, match.Rule.DesiredFriendlyName);
+                    }
+                    catch (Exception ex)
+                    {
+                        lock (errors)
+                            errors.Add($"{match.Device.InstanceId}\r\n{ex.Message}");
+                    }
+                }
+
+                progress.Report(new ImportProgressInfo { Percent = 100, Status = "写入完成" });
+            });
+        }
+        finally
+        {
+            SetImportBusy(false);
+        }
+
+        if (errors.Count == 0)
+        {
+            MessageBox.Show(this,
+                $"已成功应用 {matches.Count} 个 FriendlyName。\r\n\r\n如果设备管理器没有立即刷新，可重新扫描硬件或重新插拔设备。",
+                "导入完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        else
+        {
+            var preview = string.Join("\r\n\r\n", errors.Take(8));
+            if (errors.Count > 8)
+                preview += $"\r\n\r\n……另有 {errors.Count - 8} 项错误未显示。";
+            MessageBox.Show(this,
+                $"已尝试应用 {matches.Count} 个设备，其中 {errors.Count} 个失败。\r\n\r\n{preview}",
+                "导入部分完成", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+
+        LoadDevices(_selected?.InstanceId);
+    }
+
+    private void SetImportBusy(bool busy, string status = "", int percent = 0)
+    {
+        if (_importProgress is null || _importStatus is null)
+            return;
+
+        if (busy)
+        {
+            _importEnabledState = new Dictionary<Control, bool>();
+            foreach (Control control in topPanel.Controls)
+            {
+                if (ReferenceEquals(control, _importProgress) || ReferenceEquals(control, _importStatus))
+                    continue;
+                _importEnabledState[control] = control.Enabled;
+                control.Enabled = false;
+            }
+
+            _importEnabledState[splitMain] = splitMain.Enabled;
+            splitMain.Enabled = false;
+
+            _importProgress.Visible = true;
+            _importStatus.Visible = true;
+            _importProgress.Value = Math.Clamp(percent, 0, 100);
+            _importStatus.Text = status;
+            Cursor = Cursors.WaitCursor;
+        }
+        else
+        {
+            if (_importEnabledState is not null)
+            {
+                foreach (var pair in _importEnabledState)
+                    if (!pair.Key.IsDisposed)
+                        pair.Key.Enabled = pair.Value;
+            }
+
+            _importEnabledState = null;
+            _importProgress.Visible = false;
+            _importStatus.Visible = false;
+            _importStatus.Text = "";
+            Cursor = Cursors.Default;
+        }
+    }
+
+    private void UpdateImportProgress(ImportProgressInfo info)
+    {
+        if (_importProgress is null || _importStatus is null)
+            return;
+        _importProgress.Value = Math.Clamp(info.Percent, 0, 100);
+        _importStatus.Text = info.Status;
+    }
+
 
     private void btnSave_Click(object? sender, EventArgs e) => SaveFriendlyName();
 
