@@ -82,7 +82,7 @@ public sealed class DeviceCustomInfo
     };
 }
 
-internal static partial class PnpDeviceService
+internal static class PnpDeviceService
 {
     private const uint DIGCF_PRESENT = 0x00000002;
     private const uint DIGCF_ALLCLASSES = 0x00000004;
@@ -115,16 +115,15 @@ internal static partial class PnpDeviceService
         public IntPtr Reserved;
     }
 
-    [LibraryImport("setupapi.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-    private static partial IntPtr SetupDiGetClassDevs(
+    [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr SetupDiGetClassDevs(
         IntPtr ClassGuid,
         string? Enumerator,
         IntPtr hwndParent,
         uint Flags);
 
-    [LibraryImport("setupapi.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool SetupDiEnumDeviceInfo(
+    [DllImport("setupapi.dll", SetLastError = true)]
+    private static extern bool SetupDiEnumDeviceInfo(
         IntPtr DeviceInfoSet,
         uint MemberIndex,
         ref SP_DEVINFO_DATA DeviceInfoData);
@@ -137,18 +136,16 @@ internal static partial class PnpDeviceService
         uint DeviceInstanceIdSize,
         out uint RequiredSize);
 
-    [LibraryImport("setupapi.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool SetupDiOpenDeviceInfo(
+    [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool SetupDiOpenDeviceInfo(
         IntPtr DeviceInfoSet,
         string DeviceInstanceId,
         IntPtr hwndParent,
         uint OpenFlags,
         ref SP_DEVINFO_DATA DeviceInfoData);
 
-    [LibraryImport("setupapi.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool SetupDiGetDeviceRegistryProperty(
+    [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool SetupDiGetDeviceRegistryProperty(
         IntPtr DeviceInfoSet,
         ref SP_DEVINFO_DATA DeviceInfoData,
         uint Property,
@@ -157,22 +154,19 @@ internal static partial class PnpDeviceService
         uint PropertyBufferSize,
         out uint RequiredSize);
 
-    [LibraryImport("setupapi.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool SetupDiSetDeviceRegistryProperty(
+    [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool SetupDiSetDeviceRegistryProperty(
         IntPtr DeviceInfoSet,
         ref SP_DEVINFO_DATA DeviceInfoData,
         uint Property,
         byte[] PropertyBuffer,
         uint PropertyBufferSize);
 
-    [LibraryImport("setupapi.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool SetupDiDestroyDeviceInfoList(IntPtr DeviceInfoSet);
+    [DllImport("setupapi.dll", SetLastError = true)]
+    private static extern bool SetupDiDestroyDeviceInfoList(IntPtr DeviceInfoSet);
 
-    [LibraryImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool GetLogicalProcessorInformationEx(
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetLogicalProcessorInformationEx(
         int RelationshipType,
         IntPtr Buffer,
         ref int ReturnedLength);
@@ -207,7 +201,7 @@ internal static partial class PnpDeviceService
         {
             var result = new List<DeviceEntry>();
 
-            for (uint i = 0;; i++)
+            for (uint i = 0; ; i++)
             {
                 var data = NewDevInfoData();
 
@@ -313,8 +307,15 @@ internal static partial class PnpDeviceService
 
             var bytes = Encoding.Unicode.GetBytes(friendlyName + "\0");
 
-            if (!SetupDiSetDeviceRegistryProperty(h, ref data, SPDRP_FRIENDLYNAME, bytes, (uint)bytes.Length))
+            if (!SetupDiSetDeviceRegistryProperty(
+                    h,
+                    ref data,
+                    SPDRP_FRIENDLYNAME,
+                    bytes,
+                    (uint)bytes.Length))
+            {
                 ThrowLastWin32();
+            }
         }
         finally
         {
@@ -359,7 +360,9 @@ internal static partial class PnpDeviceService
         if (GetLogicalProcessorInformationEx(RelationProcessorCore, IntPtr.Zero, ref length) ||
             Marshal.GetLastWin32Error() != ERROR_INSUFFICIENT_BUFFER ||
             length <= 0)
+        {
             return [];
+        }
 
         var buffer = Marshal.AllocHGlobal(length);
         try
@@ -387,7 +390,7 @@ internal static partial class PnpDeviceService
                     var efficiencyClass = Marshal.ReadByte(entry, 9);
                     var groupCount = (ushort)Marshal.ReadInt16(entry, 30);
                     var logicalNumbers = new List<int>();
-                    const int groupAffinityOffset = 32;
+                    var groupAffinityOffset = 32;
                     var groupAffinitySize = IntPtr.Size == 8 ? 16 : 12;
 
                     for (var i = 0; i < groupCount; i++)
@@ -399,15 +402,19 @@ internal static partial class PnpDeviceService
                         var group = (ushort)Marshal.ReadInt16(affinity, IntPtr.Size);
 
                         for (var bit = 0; bit < IntPtr.Size * 8; bit++)
+                        {
                             if ((mask & (1UL << bit)) != 0)
                                 logicalNumbers.Add(group * 64 + bit);
+                        }
                     }
 
                     if (logicalNumbers.Count > 0)
+                    {
                         cores.Add(new PhysicalCoreTopology(
                             physicalCoreNumber++,
                             efficiencyClass,
                             logicalNumbers));
+                    }
                 }
 
                 offset += entrySize;
@@ -420,10 +427,11 @@ internal static partial class PnpDeviceService
             var result = new Dictionary<int, LogicalProcessorTopology>();
 
             foreach (var core in cores)
+            {
                 for (var i = 0; i < core.LogicalProcessorNumbers.Count; i++)
                 {
                     var logicalNumber = core.LogicalProcessorNumbers[i];
-                    result[logicalNumber] = new LogicalProcessorTopology(   
+                    result[logicalNumber] = new LogicalProcessorTopology(
                         logicalNumber,
                         core.PhysicalCoreNumber,
                         i + 1,
@@ -433,6 +441,7 @@ internal static partial class PnpDeviceService
                         core.EfficiencyClass == highestEfficiencyClass,
                         core.EfficiencyClass == lowestEfficiencyClass);
                 }
+            }
 
             return result;
         }
@@ -494,9 +503,10 @@ internal static partial class PnpDeviceService
 
         var buffer = new byte[required];
 
-        return !SetupDiGetDeviceRegistryProperty(h, ref data, property, out _, buffer, (uint)buffer.Length, out _)
-            ? []
-            : DecodeRegStringOrMultiString(buffer);
+        if (!SetupDiGetDeviceRegistryProperty(h, ref data, property, out _, buffer, (uint)buffer.Length, out _))
+            return [];
+
+        return DecodeRegStringOrMultiString(buffer);
     }
 
     private static string[] DecodeRegStringOrMultiString(byte[] buffer)
@@ -504,12 +514,9 @@ internal static partial class PnpDeviceService
         if (string.IsNullOrWhiteSpace(Encoding.Unicode.GetString(buffer).TrimEnd('\0')))
             return [];
 
-        return
-        [
-            .. Encoding.Unicode.GetString(buffer).TrimEnd('\0')
-                .Split('\0', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-        ];
+        return [.. Encoding.Unicode.GetString(buffer).TrimEnd('\0')
+            .Split('\0', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(x => !string.IsNullOrWhiteSpace(x))];
     }
 
     private static string GetClassApiName(Guid guid)

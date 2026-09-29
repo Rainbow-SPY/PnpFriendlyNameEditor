@@ -135,15 +135,7 @@ public partial class Form1 : Form
         SetImportBusy(true, "正在枚举设备...", 5);
         try
         {
-            preparation = await Task.Run(() =>
-            {
-                progress.Report(new ImportProgressInfo { Percent = 8, Status = "枚举全部 PnP 设备..." });
-                var devices = PnpDeviceService.EnumerateDevices(false);
-                progress.Report(new ImportProgressInfo { Percent = 15, Status = $"已枚举 {devices.Count} 个设备，开始匹配..." });
-                var result = ImportMatcher.Prepare(rules, devices, progress);
-                progress.Report(new ImportProgressInfo { Percent = 100, Status = "匹配完成" });
-                return result;
-            });
+            preparation = await Task.Run(() => PnpBatchService.PrepareImport(rules, progress));
         }
         catch (Exception ex)
         {
@@ -213,53 +205,32 @@ public partial class Form1 : Form
 
     private async Task ApplyImportedNamesAsync(IReadOnlyList<ImportMatchResult> matches)
     {
-        var errors = new List<string>();
         IProgress<ImportProgressInfo> progress = new Progress<ImportProgressInfo>(UpdateImportProgress);
+        FriendlyNameApplyResult result;
         SetImportBusy(true, "正在写入 FriendlyName...");
         try
         {
-            await Task.Run(() =>
-            {
-                for (var i = 0; i < matches.Count; i++)
-                {
-                    var match = matches[i];
-                    progress.Report(new ImportProgressInfo
-                    {
-                        Percent = matches.Count == 0 ? 100 : (int)(100.0 * i / matches.Count),
-                        Status = $"应用 {i + 1}/{matches.Count}: {match.Rule.DesiredFriendlyName}"
-                    });
-
-                    try
-                    {
-                        AppendFriendlyNameBackup(match.Device, match.Rule.DesiredFriendlyName);
-                        PnpDeviceService.SetFriendlyName(match.Device.InstanceId, match.Rule.DesiredFriendlyName);
-                    }
-                    catch (Exception ex)
-                    {
-                        lock (errors)
-                            errors.Add($"{match.Device.InstanceId}\r\n{ex.Message}");
-                    }
-                }
-
-                progress.Report(new ImportProgressInfo { Percent = 100, Status = "写入完成" });
-            });
+            result = await Task.Run(() => PnpBatchService.ApplyImportedNames(matches, progress));
         }
         finally
         {
             SetImportBusy(false);
         }
 
-        if (errors.Count == 0)
+        if (result.Succeeded)
             MessageBox.Show(this,
-                $"已成功应用 {matches.Count} 个 FriendlyName。\r\n\r\n如果设备管理器没有立即刷新，可重新扫描硬件或重新插拔设备。",
+                $"已成功应用 {result.SuccessCount} 个 FriendlyName。\r\n\r\n如果设备管理器没有立即刷新，可重新扫描硬件或重新插拔设备。",
                 "导入完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
         else
         {
+            var errors = result.Errors
+                .Select(error => $"{error.Device.InstanceId}\r\n{error.Exception.Message}")
+                .ToArray();
             var preview = string.Join("\r\n\r\n", errors.Take(8));
-            if (errors.Count > 8)
-                preview += $"\r\n\r\n……另有 {errors.Count - 8} 项错误未显示。";
+            if (errors.Length > 8)
+                preview += $"\r\n\r\n……另有 {errors.Length - 8} 项错误未显示。";
             MessageBox.Show(this,
-                $"已尝试应用 {matches.Count} 个设备，其中 {errors.Count} 个失败。\r\n\r\n{preview}",
+                $"已尝试应用 {result.AttemptedCount} 个设备，其中 {result.FailedCount} 个失败。\r\n\r\n{preview}",
                 "导入部分完成", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
@@ -493,8 +464,7 @@ public partial class Form1 : Form
 
         try
         {
-            AppendFriendlyNameBackup(_selected, newName);
-            PnpDeviceService.SetFriendlyName(_selected.InstanceId, newName);
+            PnpBatchService.ApplyFriendlyName(_selected, newName);
 
             MessageBox.Show(
                 this,
@@ -586,29 +556,6 @@ public partial class Form1 : Form
 
         // 按“多个框”处理：2 个及以上才 Enable。
         btnExportCustom.Enabled = count >= 2;
-    }
-
-    private static void AppendFriendlyNameBackup(DeviceEntry oldDevice, string newName)
-    {
-        var dir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "PnpFriendlyNameEditor");
-
-        Directory.CreateDirectory(dir);
-
-        var file = Path.Combine(dir, "friendly-name-backup.jsonl");
-
-        var record = new
-        {
-            Time = DateTimeOffset.Now,
-            oldDevice.InstanceId,
-            oldDevice.DisplayName,
-            oldDevice.FriendlyName,
-            oldDevice.Description,
-            NewFriendlyName = newName
-        };
-
-        File.AppendAllText(file, JsonSerializer.Serialize(record) + Environment.NewLine, Encoding.UTF8);
     }
 
     private static bool IsAdministrator()
