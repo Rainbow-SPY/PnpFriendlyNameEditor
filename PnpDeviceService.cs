@@ -423,7 +423,7 @@ internal static partial class PnpDeviceService
                 for (var i = 0; i < core.LogicalProcessorNumbers.Count; i++)
                 {
                     var logicalNumber = core.LogicalProcessorNumbers[i];
-                    result[logicalNumber] = new LogicalProcessorTopology(
+                    result[logicalNumber] = new LogicalProcessorTopology(   
                         logicalNumber,
                         core.PhysicalCoreNumber,
                         i + 1,
