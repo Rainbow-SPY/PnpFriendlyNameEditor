@@ -1,5 +1,3 @@
-using System.Drawing;
-
 namespace PnpFriendlyNameEditor;
 
 internal sealed class ImportDiffForm : Form
@@ -69,13 +67,13 @@ internal sealed class ImportDiffForm : Form
         // 不设置 Panel1MinSize / Panel2MinSize。WinForms 在初始化和 DPI/布局变化期间
         // 会立即用临时 Width 校验这些属性，容易与 SplitterDistance 互相触发越界。
         // 只在窗口真正显示后延迟设置 SplitterDistance；后续缩放同样只调整 Distance。
-        Shown += (_, _) => BeginInvoke(new Action(() => TryApplySplitterDistance(main)));
+        Shown += (_, _) => BeginInvoke(() => TryApplySplitterDistance(main));
         main.SizeChanged += (_, _) =>
         {
             if (!Visible || !IsHandleCreated || main.IsDisposed)
                 return;
 
-            BeginInvoke(new Action(() => TryApplySplitterDistance(main, preserveCurrentDistance: true)));
+            BeginInvoke(() => TryApplySplitterDistance(main, preserveCurrentDistance: true));
         };
 
         _tree.Dock = DockStyle.Fill;
@@ -104,8 +102,10 @@ internal sealed class ImportDiffForm : Form
         comparison.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         main.Panel2.Controls.Add(comparison);
 
-        var leftTitle = new Label { Text = "配置 / 导出记录", Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(4, 4, 4, 8) };
-        var rightTitle = new Label { Text = "当前设备", Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(4, 4, 4, 8) };
+        var leftTitle = new Label
+            { Text = "配置 / 导出记录", Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(4, 4, 4, 8) };
+        var rightTitle = new Label
+            { Text = "当前设备", Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(4, 4, 4, 8) };
         comparison.Controls.Add(leftTitle, 0, 0);
         comparison.Controls.Add(rightTitle, 1, 0);
         comparison.Controls.Add(_leftGrid, 0, 1);
@@ -212,14 +212,19 @@ internal sealed class ImportDiffForm : Form
         var group = new TreeNode($"{title} ({matches.Count})") { Checked = matches.Count > 0 };
         foreach (var match in matches)
         {
-            var current = string.IsNullOrWhiteSpace(match.Device.DisplayName) ? match.Device.InstanceId : match.Device.DisplayName;
-            var desired = string.IsNullOrWhiteSpace(match.Rule.DesiredFriendlyName) ? "<空 FriendlyName>" : match.Rule.DesiredFriendlyName;
+            var current = string.IsNullOrWhiteSpace(match.Device.DisplayName)
+                ? match.Device.InstanceId
+                : match.Device.DisplayName;
+            var desired = string.IsNullOrWhiteSpace(match.Rule.DesiredFriendlyName)
+                ? "<空 FriendlyName>"
+                : match.Rule.DesiredFriendlyName;
             group.Nodes.Add(new TreeNode($"{desired}  ←  {current}")
             {
                 Tag = match,
                 Checked = true
             });
         }
+
         _tree.Nodes.Add(group);
     }
 
@@ -235,7 +240,7 @@ internal sealed class ImportDiffForm : Form
                 foreach (TreeNode child in e.Node.Nodes)
                     child.Checked = e.Node.Checked;
             }
-            else if (e.Node.Parent is TreeNode parent)
+            else if (e.Node.Parent is { } parent)
             {
                 parent.Checked = parent.Nodes.Cast<TreeNode>().Any(x => x.Checked);
             }
@@ -248,7 +253,8 @@ internal sealed class ImportDiffForm : Form
 
     private void RenderMatch(ImportMatchResult match)
     {
-        var keys = BuildOrderedKeys(match.SourceProperties.Keys.Union(match.CurrentProperties.Keys, StringComparer.OrdinalIgnoreCase));
+        var keys = BuildOrderedKeys(
+            match.SourceProperties.Keys.Union(match.CurrentProperties.Keys, StringComparer.OrdinalIgnoreCase));
         _leftGrid.Rows.Clear();
         _rightGrid.Rows.Clear();
 
@@ -291,9 +297,11 @@ internal sealed class ImportDiffForm : Form
             "[解析] EnumeratorType", "[解析] Bus", "[解析] VID", "[解析] PID", "[解析] VEN", "[解析] DEV",
             "[解析] MI", "[解析] COL", "[解析] SUBSYS", "[解析] FUNC", "[解析] PROD", "[解析] REV",
             "[解析] KIND", "[解析] PROFILE", "[解析] ModelSegment", "[解析] LogicalProcessorNumber", "[解析] InstanceTail",
-            "InstanceId", "CustomFriendlyName", "DisplayNameAtExport", "DeviceDescription", "ClassName", "ClassDisplayName",
+            "InstanceId", "CustomFriendlyName", "DisplayNameAtExport", "DeviceDescription", "ClassName",
+            "ClassDisplayName",
             "ClassGuid", "Manufacturer", "Service", "Enumerator", "Driver", "LocationInformation",
-            "PhysicalDeviceObjectName", "LogicalProcessorNumber", "ProcessorTopology", "HardwareIds", "CompatibleIds", "LocationPaths"
+            "PhysicalDeviceObjectName", "LogicalProcessorNumber", "ProcessorTopology", "HardwareIds", "CompatibleIds",
+            "LocationPaths"
         };
 
         var set = new HashSet<string>(keys, StringComparer.OrdinalIgnoreCase);
@@ -306,10 +314,11 @@ internal sealed class ImportDiffForm : Form
 
     private static bool ValuesEqual(string a, string b)
     {
+        return string.Equals(Normalize(a), Normalize(b), StringComparison.OrdinalIgnoreCase);
+
         static string Normalize(string s) => (s ?? "")
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Trim();
-        return string.Equals(Normalize(a), Normalize(b), StringComparison.OrdinalIgnoreCase);
     }
 
     private void SyncScroll(DataGridView source, DataGridView target, ScrollOrientation orientation)

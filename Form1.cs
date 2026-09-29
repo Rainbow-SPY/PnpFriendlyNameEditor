@@ -93,13 +93,11 @@ public partial class Form1 : Form
 
     private async Task ImportCustomInfoAsync()
     {
-        using var dialog = new OpenFileDialog
-        {
-            Title = "导入 FriendlyName 配置 / 备份",
-            Filter = "JSON 文件 (*.json)|*.json|所有文件 (*.*)|*.*",
-            CheckFileExists = true,
-            Multiselect = false
-        };
+        using var dialog = new OpenFileDialog();
+        dialog.Title = "导入 FriendlyName 配置 / 备份";
+        dialog.Filter = "JSON 文件 (*.json)|*.json|所有文件 (*.*)|*.*";
+        dialog.CheckFileExists = true;
+        dialog.Multiselect = false;
 
         if (dialog.ShowDialog(this) != DialogResult.OK)
             return;
@@ -217,7 +215,7 @@ public partial class Form1 : Form
     {
         var errors = new List<string>();
         IProgress<ImportProgressInfo> progress = new Progress<ImportProgressInfo>(UpdateImportProgress);
-        SetImportBusy(true, "正在写入 FriendlyName...", 0);
+        SetImportBusy(true, "正在写入 FriendlyName...");
         try
         {
             await Task.Run(() =>
@@ -252,11 +250,9 @@ public partial class Form1 : Form
         }
 
         if (errors.Count == 0)
-        {
             MessageBox.Show(this,
                 $"已成功应用 {matches.Count} 个 FriendlyName。\r\n\r\n如果设备管理器没有立即刷新，可重新扫描硬件或重新插拔设备。",
                 "导入完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
         else
         {
             var preview = string.Join("\r\n\r\n", errors.Take(8));
@@ -298,11 +294,8 @@ public partial class Form1 : Form
         else
         {
             if (_importEnabledState is not null)
-            {
-                foreach (var pair in _importEnabledState)
-                    if (!pair.Key.IsDisposed)
-                        pair.Key.Enabled = pair.Value;
-            }
+                foreach (var pair in _importEnabledState.Where(pair => !pair.Key.IsDisposed))
+                    pair.Key.Enabled = pair.Value;
 
             _importEnabledState = null;
             _importProgress.Visible = false;
@@ -445,7 +438,7 @@ public partial class Form1 : Form
         catch (Exception ex)
         {
             MessageBox.Show(this, ex.ToString(), "枚举设备失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            WriteLog.Error("1" + ex.ToString() + ex.Message);
+            WriteLog.Error("1" + ex + ex.Message);
         }
         finally
         {
@@ -551,15 +544,13 @@ public partial class Form1 : Form
             Devices = [.. devices.Select(DeviceCustomInfo.FromDeviceEntry)]
         };
 
-        using var dialog = new SaveFileDialog
-        {
-            Title = "导出自定义设备信息",
-            Filter = "JSON 文件 (*.json)|*.json|所有文件 (*.*)|*.*",
-            FileName = $"device-custom-info-{DateTime.Now:yyyyMMdd-HHmmss}.json",
-            AddExtension = true,
-            DefaultExt = "json",
-            OverwritePrompt = true
-        };
+        using var dialog = new SaveFileDialog();
+        dialog.Title = "导出自定义设备信息";
+        dialog.Filter = "JSON 文件 (*.json)|*.json|所有文件 (*.*)|*.*";
+        dialog.FileName = $"device-custom-info-{DateTime.Now:yyyyMMdd-HHmmss}.json";
+        dialog.AddExtension = true;
+        dialog.DefaultExt = "json";
+        dialog.OverwritePrompt = true;
 
         if (dialog.ShowDialog(this) != DialogResult.OK)
             return;
@@ -623,8 +614,7 @@ public partial class Form1 : Form
     private static bool IsAdministrator()
     {
         using var identity = WindowsIdentity.GetCurrent();
-        var principal = new WindowsPrincipal(identity);
-        return principal.IsInRole(WindowsBuiltInRole.Administrator);
+        return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
     }
 
     private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e) =>

@@ -200,20 +200,23 @@ internal static class ImportFileParser
             var classDisplayName = GetString(item, "ClassDisplayName") ?? "";
             if (string.IsNullOrWhiteSpace(className) && !string.IsNullOrWhiteSpace(explicitType))
             {
-                if (Enum.TryParse<PnpClassType>(explicitType, true, out var parsedType) && parsedType != PnpClassType.Unknown)
-                    className = explicitType!;
+                if (Enum.TryParse<PnpClassType>(explicitType, true, out var parsedType) &&
+                    parsedType != PnpClassType.Unknown)
+                    className = explicitType;
                 else if (string.IsNullOrWhiteSpace(classDisplayName))
-                    classDisplayName = explicitType!;
+                    classDisplayName = explicitType;
             }
 
             var hardwareIds = GetStringArray(item, "HardwareIds");
             var logicalProcessorNumber = GetNullableInt(item, "LogicalProcessorNumber");
             var identity = DeviceIdentityParser.Parse(instanceId ?? "", hardwareIds, logicalProcessorNumber);
 
-            if (TryGetPropertyIgnoreCase(item, "Identity", out var identityObject) && identityObject.ValueKind == JsonValueKind.Object)
+            if (TryGetPropertyIgnoreCase(item, "Identity", out var identityObject) &&
+                identityObject.ValueKind == JsonValueKind.Object)
                 identity = DeviceIdentityParser.MergeExplicitIdentity(identity, identityObject);
 
-            if (string.IsNullOrWhiteSpace(instanceId) && identity.Fields.Count == 0 && string.IsNullOrWhiteSpace(identity.ModelSegment))
+            if (string.IsNullOrWhiteSpace(instanceId) && identity.Fields.Count == 0 &&
+                string.IsNullOrWhiteSpace(identity.ModelSegment))
                 throw new InvalidDataException($"Devices[{index - 1}] 既没有 InstanceId，也没有可用的 Identity 字段。");
 
             var props = FlattenProperties(item);
@@ -233,7 +236,8 @@ internal static class ImportFileParser
                 ClassDisplayName = classDisplayName,
                 ClassType = ParseClassType(className),
                 Manufacturer = GetString(item, "Manufacturer") ?? "",
-                DeviceDescription = FirstNonEmpty(GetString(item, "DeviceDescription"), GetString(item, "Description")) ?? "",
+                DeviceDescription =
+                    FirstNonEmpty(GetString(item, "DeviceDescription"), GetString(item, "Description")) ?? "",
                 Service = GetString(item, "Service") ?? "",
                 HardwareIds = hardwareIds,
                 LogicalProcessorNumber = logicalProcessorNumber,
@@ -294,7 +298,7 @@ internal static class ImportFileParser
         dict["[解析] Bus"] = identity.RawEnumerator;
         dict["[解析] ModelSegment"] = identity.ModelSegment;
         dict["[解析] InstanceTail"] = identity.InstanceTail;
-        if (identity.LogicalProcessorNumber is int lp)
+        if (identity.LogicalProcessorNumber is { } lp)
             dict["[解析] LogicalProcessorNumber"] = lp.ToString();
         foreach (var pair in identity.Fields.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
             dict[$"[解析] {pair.Key}"] = pair.Value;
@@ -304,7 +308,8 @@ internal static class ImportFileParser
     {
         if (!TryGetPropertyIgnoreCase(obj, name, out var value))
             return null;
-        return value.ValueKind == JsonValueKind.String ? value.GetString() : value.ValueKind == JsonValueKind.Null ? null : value.ToString();
+        return value.ValueKind == JsonValueKind.String ? value.GetString() :
+            value.ValueKind == JsonValueKind.Null ? null : value.ToString();
     }
 
     private static int? GetNullableInt(JsonElement obj, string name)
@@ -337,6 +342,7 @@ internal static class ImportFileParser
                 return true;
             }
         }
+
         value = default;
         return false;
     }
@@ -389,7 +395,8 @@ internal static class DeviceIdentityParser
                 ExtractFields(identity, hardwareId ?? "");
         }
 
-        var firstToken = modelSegment.Split('&', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+        var firstToken = modelSegment.Split('&', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault();
         if (!string.IsNullOrWhiteSpace(firstToken) && !firstToken.Contains('_'))
             identity.Fields.TryAdd("KIND", firstToken.ToUpperInvariant());
 
@@ -402,7 +409,8 @@ internal static class DeviceIdentityParser
 
     public static DeviceIdentity MergeExplicitIdentity(DeviceIdentity parsed, JsonElement identityObject)
     {
-        var rawBus = GetString(identityObject, "Bus") ?? GetString(identityObject, "Enumerator") ?? GetString(identityObject, "Type") ?? parsed.RawEnumerator;
+        var rawBus = GetString(identityObject, "Bus") ?? GetString(identityObject, "Enumerator") ??
+            GetString(identityObject, "Type") ?? parsed.RawEnumerator;
         var merged = new DeviceIdentity
         {
             EnumeratorType = ParseEnumerator(rawBus),
@@ -422,9 +430,11 @@ internal static class DeviceIdentityParser
                 continue;
             if (property.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
                 continue;
-            var value = property.Value.ValueKind == JsonValueKind.String ? property.Value.GetString() : property.Value.ToString();
+            var value = property.Value.ValueKind == JsonValueKind.String
+                ? property.Value.GetString()
+                : property.Value.ToString();
             if (!string.IsNullOrWhiteSpace(value))
-                merged.Fields[key] = value!.Trim().ToUpperInvariant();
+                merged.Fields[key] = value.Trim().ToUpperInvariant();
         }
 
         return merged;
@@ -469,7 +479,8 @@ internal static class DeviceIdentityParser
 
     private static int? GetInt(JsonElement obj, string name)
     {
-        if (!ImportFileParser.TryGetPropertyIgnoreCase(obj, name, out var value) || value.ValueKind == JsonValueKind.Null)
+        if (!ImportFileParser.TryGetPropertyIgnoreCase(obj, name, out var value) ||
+            value.ValueKind == JsonValueKind.Null)
             return null;
         if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var i))
             return i;
@@ -505,7 +516,8 @@ internal static class ImportMatcher
             });
 
             DeviceEntry? exact = null;
-            if (!string.IsNullOrWhiteSpace(rule.InstanceId) && exactLookup.TryGetValue(rule.InstanceId, out var exactCandidates))
+            if (!string.IsNullOrWhiteSpace(rule.InstanceId) &&
+                exactLookup.TryGetValue(rule.InstanceId, out var exactCandidates))
             {
                 exact = exactCandidates.FirstOrDefault(x => !used.Contains(x.InstanceId) && ClassMatches(rule, x));
             }
@@ -557,23 +569,20 @@ internal static class ImportMatcher
             CurrentProperties = ImportPropertyBuilder.FromDevice(device)
         };
 
-    private static bool ClassMatches(ImportRule rule, DeviceEntry device)
-    {
-        if (!string.IsNullOrWhiteSpace(rule.ClassName) &&
-            !string.Equals(rule.ClassName.Trim(), device.ClassName?.Trim(), StringComparison.OrdinalIgnoreCase))
-            return false;
-        if (!string.IsNullOrWhiteSpace(rule.ClassDisplayName) &&
-            !string.Equals(rule.ClassDisplayName.Trim(), device.ClassDisplayName?.Trim(), StringComparison.OrdinalIgnoreCase))
-            return false;
-        return true;
-    }
+    private static bool ClassMatches(ImportRule rule, DeviceEntry device) =>
+        (string.IsNullOrWhiteSpace(rule.ClassName) ||
+         string.Equals(rule.ClassName.Trim(), device.ClassName?.Trim(), StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrWhiteSpace(rule.ClassDisplayName) ||
+         string.Equals(rule.ClassDisplayName.Trim(), device.ClassDisplayName?.Trim(),
+             StringComparison.OrdinalIgnoreCase));
 
-    private static bool IdentityMatches(ImportRule rule, DeviceIdentity source, DeviceEntry device, DeviceIdentity target)
+    private static bool IdentityMatches(ImportRule rule, DeviceIdentity source, DeviceEntry device,
+        DeviceIdentity target)
     {
         if (!SameEnumerator(source, target))
             return false;
 
-        if (source.LogicalProcessorNumber is int lp && device.LogicalProcessorNumber != lp)
+        if (source.LogicalProcessorNumber is { } lp && device.LogicalProcessorNumber != lp)
             return false;
 
         var hasStrongIdentity = false;
@@ -617,14 +626,8 @@ internal static class ImportMatcher
         if (!string.IsNullOrWhiteSpace(source.Get("KIND")) && !SameField(source, target, "KIND"))
             return false;
 
-        foreach (var key in OptionalDiscriminators)
-        {
-            var sourceValue = source.Get(key);
-            if (!string.IsNullOrWhiteSpace(sourceValue) && !SameField(source, target, key))
-                return false;
-        }
-
-        return true;
+        return OptionalDiscriminators.All(key =>
+            string.IsNullOrWhiteSpace(source.Get(key)) || SameField(source, target, key));
     }
 
     private static bool SameEnumerator(DeviceIdentity a, DeviceIdentity b)
@@ -633,7 +636,8 @@ internal static class ImportMatcher
             return false;
         if (a.EnumeratorType == PnpEnumeratorType.CustomGuid || b.EnumeratorType == PnpEnumeratorType.CustomGuid)
             return string.Equals(a.RawEnumerator, b.RawEnumerator, StringComparison.OrdinalIgnoreCase);
-        return a.EnumeratorType == b.EnumeratorType || a.EnumeratorType == PnpEnumeratorType.Unknown || b.EnumeratorType == PnpEnumeratorType.Unknown;
+        return a.EnumeratorType == b.EnumeratorType || a.EnumeratorType == PnpEnumeratorType.Unknown ||
+               b.EnumeratorType == PnpEnumeratorType.Unknown;
     }
 
     private static bool HasBoth(DeviceIdentity identity, string a, string b)
@@ -646,18 +650,22 @@ internal static class ImportMatcher
     {
         var current = candidates;
         current = Narrow(current, rule.Manufacturer, x => x.Manufacturer);
-        if (current.Count == 1) return current;
+        if (current.Count == 1)
+            return current;
         current = Narrow(current, rule.DeviceDescription, x => x.Description);
-        if (current.Count == 1) return current;
+        if (current.Count == 1)
+            return current;
         current = Narrow(current, rule.Service, x => x.Service);
         return current;
     }
 
-    private static List<DeviceEntry> Narrow(List<DeviceEntry> input, string expected, Func<DeviceEntry, string> selector)
+    private static List<DeviceEntry> Narrow(List<DeviceEntry> input, string expected,
+        Func<DeviceEntry, string> selector)
     {
         if (input.Count <= 1 || string.IsNullOrWhiteSpace(expected))
             return input;
-        var narrowed = input.Where(x => string.Equals(selector(x)?.Trim(), expected.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+        var narrowed = input.Where(x =>
+            string.Equals(selector(x)?.Trim(), expected.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
         return narrowed.Count > 0 ? narrowed : input;
     }
 }
@@ -693,7 +701,7 @@ internal static class ImportPropertyBuilder
         dict["[解析] Bus"] = identity.RawEnumerator;
         dict["[解析] ModelSegment"] = identity.ModelSegment;
         dict["[解析] InstanceTail"] = identity.InstanceTail;
-        if (identity.LogicalProcessorNumber is int lp)
+        if (identity.LogicalProcessorNumber is { } lp)
             dict["[解析] LogicalProcessorNumber"] = lp.ToString();
         foreach (var pair in identity.Fields.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
             dict[$"[解析] {pair.Key}"] = pair.Value;
